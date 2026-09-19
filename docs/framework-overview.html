@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HomeOffice Assessment Test Automation Framework Overview</title>
+  <style>
+    @page {
+      margin: 18mm;
+    }
+
+    body {
+      color: #17202a;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    h1 {
+      border-bottom: 2px solid #1f6feb;
+      color: #0b315f;
+      font-size: 24pt;
+      margin: 0 0 12px;
+      padding-bottom: 8px;
+    }
+
+    h2 {
+      color: #0b315f;
+      font-size: 15pt;
+      margin: 22px 0 8px;
+    }
+
+    h3 {
+      color: #1f3b57;
+      font-size: 12pt;
+      margin: 16px 0 6px;
+    }
+
+    p {
+      margin: 0 0 8px;
+    }
+
+    ul, ol {
+      margin: 6px 0 10px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    code {
+      background: #f3f6fa;
+      border: 1px solid #d8e0ea;
+      border-radius: 4px;
+      color: #132f4c;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 9.5pt;
+      padding: 1px 4px;
+    }
+
+    pre {
+      background: #f7f9fc;
+      border: 1px solid #d8e0ea;
+      border-radius: 6px;
+      color: #132f4c;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 9.5pt;
+      line-height: 1.35;
+      margin: 8px 0 12px;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 8px 0 12px;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid #d8e0ea;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef4fb;
+      color: #0b315f;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      color: #405466;
+      font-size: 12pt;
+      margin-bottom: 18px;
+    }
+
+    .note {
+      background: #f7f9fc;
+      border-left: 4px solid #1f6feb;
+      margin: 10px 0;
+      padding: 8px 10px;
+    }
+
+    .page-break {
+      break-before: page;
+    }
+  </style>
+</head>
+<body>
+  <h1>HomeOffice Assessment Test Automation Framework Overview</h1>
+  <p class="subtitle">A detailed walkthrough of the Java Serenity BDD, Cucumber, Selenium, REST Assured, and WireMock test framework.</p>
+
+  <h2>1. Big Picture</h2>
+  <p>This repository is a Java test automation framework that covers both UI and API testing. UI tests target SauceDemo, while API tests target Postcodes.io. The framework is written around Cucumber feature files, Serenity BDD reporting and lifecycle support, Selenium WebDriver for browser automation, REST Assured for HTTP testing, and WireMock for deterministic API stubbing.</p>
+
+  <table>
+    <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+    <tr><td>Runner</td><td>JUnit Platform Suite</td><td>Starts Cucumber from Maven/JUnit.</td></tr>
+    <tr><td>BDD</td><td>Cucumber 7</td><td>Maps Gherkin scenarios to Java step definitions.</td></tr>
+    <tr><td>UI automation</td><td>Serenity BDD + Selenium</td><td>Controls SauceDemo in a browser and records rich reports.</td></tr>
+    <tr><td>API automation</td><td>Serenity REST + REST Assured</td><td>Sends HTTP requests and validates Postcodes.io responses.</td></tr>
+    <tr><td>Stubbing</td><td>WireMock</td><td>Runs deterministic API scenarios without relying on the live service.</td></tr>
+    <tr><td>Assertions</td><td>AssertJ + JSON schema validator</td><td>Provides readable validation for responses, UI state, and schemas.</td></tr>
+  </table>
+
+  <h2>2. Project Layout</h2>
+  <pre>src/test/java/homeoffice
+  actions/             UI workflow/action classes
+  api/                 Postcodes.io REST client and request setup
+  assertions/          Reusable API assertions
+  config/              API configuration loader and validator
+  constants/           Runner/report constants
+  model/               Small value objects such as Coordinates
+  PageObject/          Serenity page objects for SauceDemo
+  pagecollections/     Page alias registry and page resolution
+  state/               API scenario state holder
+  StepsDefinitions/    Cucumber step definitions
+  support/             Hooks, WireMock stubs, browser logging helpers
+
+src/test/resources
+  features/api_tests   Postcodes.io feature files
+  features/ui_tests    SauceDemo feature files
+  schemas/             JSON schemas
+  stubs/               WireMock mappings and response bodies
+  serenity.conf        Serenity, WebDriver, and API configuration</pre>
+
+  <h2>3. How Test Execution Starts</h2>
+  <p>The main suite is <code>src/test/java/homeoffice/CucumberTestSuite.java</code>. It uses the Cucumber JUnit Platform engine, selects the feature root <code>/features</code>, and sets the glue package to <code>homeoffice</code>. That means Cucumber scans all feature files and discovers step definitions and hooks anywhere below the <code>homeoffice</code> package.</p>
+
+  <pre>@Suite
+@IncludeEngines("cucumber")
+@SelectClasspathResource("/features")
+@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "homeoffice")
+@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = DEFAULT_PLUGINS)</pre>
+
+  <p>There is also a UI-specific runner at <code>src/test/java/homeoffice/testRunners/CucumberTestSuite.java</code>. It points at <code>/features/ui_tests</code>, so it can run only the browser-focused scenarios.</p>
+
+  <h2>4. Feature Layer</h2>
+  <p>Feature files are the behaviour specification layer. They describe what the user or API consumer expects, not how Selenium or REST Assured should do it.</p>
+
+  <h3>API Feature Example</h3>
+  <pre>@postcodes-api @stub
+Feature: Find the nearest postcode using coordinates from a postcode lookup
+
+  Background:
+    Given the API root endpoint is reachable
+    Given the "&lt;postcode&gt;" to search
+
+  Scenario Outline: Verify every field returned for a postcode lookup
+    When I search postcode for "&lt;postcode&gt;"
+    Then the response status should be "&lt;code&gt;"</pre>
+
+  <h3>UI Feature Example</h3>
+  <pre>@ui @login
+Feature: login page UI
+
+  Scenario Outline: Login page displays logo, form, accepted users and password
+    Given I navigate to "/"
+    And the page title should be "Swag Labs"
+    Then I should be on the "login" page
+    And the login form should be present and visible</pre>
+
+  <p>Tags drive execution and environment behaviour. For example, <code>@stub</code> starts WireMock and points API traffic at the stub server, while <code>@live</code> stops the stub and uses the real Postcodes.io base URL.</p>
+
+  <h2>5. Step Definition Layer</h2>
+  <p>Step definitions translate Gherkin into Java. They should stay thin: read input, update state, call an action/API method, or call an assertion helper.</p>
+
+  <p>The main API step class is <code>PostcodeStepDefinitions</code>. It owns a fresh <code>PostcodeScenarioState</code> per scenario and injects the <code>PostcodesApi</code> client through Serenity's <code>@Steps</code>.</p>
+
+  <pre>@Before
+public void initialiseScenarioState() {
+    state = new PostcodeScenarioState();
+}
+
+@When("I request the postcode details")
+public void iRequestThePostcodeDetails() {
+    state.setLookupResponse(postcodesApi.lookupPostcode(state.getPostcodeLookoutFor()));
+}</pre>
+
+  <p>UI step definitions follow a similar pattern, but usually delegate to action classes. For example, navigation steps call <code>NavigationAction</code>, and login steps call login-focused action classes.</p>
+
+  <h2>6. API Framework Flow</h2>
+  <p>The API side follows this flow:</p>
+
+  <ol>
+    <li>A Gherkin step describes an API operation.</li>
+    <li>The step definition stores inputs in <code>PostcodeScenarioState</code>.</li>
+    <li>The step calls <code>PostcodesApi</code>.</li>
+    <li><code>PostcodesApi</code> builds the request using <code>PostcodesRequestSpecification</code>.</li>
+    <li>REST Assured sends the request to either Postcodes.io or WireMock.</li>
+    <li>The response is stored back into scenario state.</li>
+    <li>Assertion steps call <code>PostcodesAssertions</code>.</li>
+  </ol>
+
+  <h3>API Client</h3>
+  <p><code>PostcodesApi</code> wraps the HTTP operations into intent-based methods:</p>
+
+  <ul>
+    <li><code>lookupPostcode(String postcode)</code></li>
+    <li><code>nearestPostcodes(double longitude, double latitude)</code></li>
+    <li><code>bulkLookupPostcodes(List&lt;String&gt; postcodes)</code></li>
+    <li><code>nearestOutcodes(String outcode)</code></li>
+    <li><code>get(String path)</code></li>
+  </ul>
+
+  <p>This prevents feature or step files from hard-coding request details repeatedly.</p>
+
+  <h3>Request Specification</h3>
+  <p><code>PostcodesRequestSpecification</code> creates a common REST Assured request using the configured base URI, timeout, URL encoding, Serenity REST integration, and optional request/response logging.</p>
+
+  <h3>API Configuration</h3>
+  <p><code>PostcodesApiConfiguration</code> reads values from system properties, Serenity environment variables, and <code>serenity.conf</code>. It centralizes paths, query parameter names, status codes, timeout values, JSON paths, and stub resource locations.</p>
+
+  <h2>7. API Scenario State</h2>
+  <p><code>PostcodeScenarioState</code> holds scenario data such as the current postcode, bulk postcode list, lookup response, nearest response, current response, extracted coordinates, and nearest postcode.</p>
+
+  <p>The important design point is <code>currentResponse</code>. When a lookup response is set, it becomes the current response. When a nearest or bulk response is set, that becomes the current response. This lets generic assertions such as <code>Then the response status should be "200"</code> work after different request types.</p>
+
+  <h2>8. API Assertions</h2>
+  <p><code>PostcodesAssertions</code> contains reusable assertion methods for:</p>
+
+  <ul>
+    <li>status code validation</li>
+    <li>response time checks</li>
+    <li>postcode normalization and matching</li>
+    <li>JSON schema validation</li>
+    <li>exact JSON resource comparison</li>
+    <li>JSON path type and value validation</li>
+    <li>coordinate extraction and comparison</li>
+    <li>nearest-postcode distance ordering</li>
+    <li>sensitive implementation detail leakage checks</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <h2>9. WireMock Stubbing</h2>
+  <p>WireMock support is handled by <code>TestEnvironmentHooks</code> and <code>PostcodesApiStub</code>.</p>
+
+  <p>Before all tests, the framework validates configuration. Before each <code>@stub</code> scenario, it starts WireMock on a dynamic port, loads stub mappings, and sets <code>postcodes.api.base-url</code> to the WireMock server URL. Before each <code>@live</code> scenario, it stops the stub and clears the override so the live API base URL is used.</p>
+
+  <p>Stub mappings come from <code>src/test/resources/stubs/postcodes-stub-mappings.csv</code>. Response bodies come from <code>src/test/resources/stubs/responses</code>.</p>
+
+  <pre>method,pathPattern,queryParams,status,responseFile
+GET,/,,200,api-available.json
+GET,/postcodes/.*,,404,lookup-not-found.json
+GET,(?i)/postcodes/SW1A(%20)?1AA,,200,lookup-success.json
+POST,/postcodes,,200,bulk-postcode-lookup-success.json</pre>
+
+  <h2>10. UI Framework Flow</h2>
+  <p>The UI side follows this flow:</p>
+
+  <ol>
+    <li>A Gherkin step describes a browser action or assertion.</li>
+    <li>The step definition delegates to an action class.</li>
+    <li>The action class performs a workflow-level operation.</li>
+    <li>The page object performs low-level Selenium/Serenity interaction.</li>
+    <li>Assertions validate page state, URL, title, text, element visibility, or product/cart state.</li>
+  </ol>
+
+  <pre>Feature file
+  -> Step definition
+    -> Action class
+      -> Page object
+        -> Serenity PageObject / Selenium WebDriver</pre>
+
+  <h3>BasePage</h3>
+  <p><code>BasePage</code> extends Serenity's <code>PageObject</code> and provides common browser helpers: waits, clicks, typing, scrolling, URL checks, title checks, element visibility checks, text reads, JavaScript fallback interactions, and action-based fallback interactions.</p>
+
+  <h3>Specific Page Objects</h3>
+  <p>Specific pages such as <code>LoginPage</code>, <code>InventoryPage</code>, <code>CartPage</code>, and checkout pages hold page-specific locators and operations. For example, <code>LoginPage</code> knows the username field, password field, login button, error message, accepted usernames panel, and inventory page validation.</p>
+
+  <h3>Action Classes</h3>
+  <p>Action classes express user workflows above the page-object level. For example, <code>LoginActions</code> resolves friendly aliases such as <code>standard user</code> to <code>standard_user</code>, applies the shared SauceDemo password, then calls the login page object.</p>
+
+  <h2>11. Page Registry</h2>
+  <p><code>PageCollection</code> acts as a page alias registry. It maps friendly names such as <code>login</code>, <code>products</code>, <code>cart</code>, and <code>checkout overview</code> to URL fragments, ready locators, page objects, and aliases.</p>
+
+  <p>This allows readable feature steps such as:</p>
+
+  <pre>Then I should be on the "cart" page</pre>
+
+  <p>The framework resolves <code>cart</code> into the expected URL fragment and ready locator, then validates that the browser is on the right screen.</p>
+
+  <h2>12. Reporting</h2>
+  <p>Reporting plugins are configured in <code>RunnerConstants</code>. The framework can produce Serenity reports, Extent reports, Cucumber HTML, Cucumber JSON, Cucumber JUnit XML, and timeline reports.</p>
+
+  <p>The main Serenity report is expected at:</p>
+
+  <pre>target/site/serenity/index.html</pre>
+
+  <p>Additional Cucumber reports are configured under:</p>
+
+  <pre>target/cucumber-reports/
+build/test-results/timeline/</pre>
+
+  <h2>13. End-to-End Example</h2>
+  <p>For an API scenario tagged <code>@stub</code>:</p>
+
+  <ol>
+    <li>Cucumber sees the <code>@stub</code> tag.</li>
+    <li><code>TestEnvironmentHooks</code> starts WireMock.</li>
+    <li>WireMock sets <code>postcodes.api.base-url</code> to its dynamic URL.</li>
+    <li>The <code>Given</code> step stores the postcode in scenario state.</li>
+    <li>The <code>When</code> step calls <code>PostcodesApi.lookupPostcode</code>.</li>
+    <li><code>PostcodesRequestSpecification</code> builds the REST Assured request.</li>
+    <li>The request goes to WireMock and receives a stub JSON response.</li>
+    <li>The response is saved into <code>PostcodeScenarioState</code>.</li>
+    <li>The <code>Then</code> step calls <code>PostcodesAssertions.assertStatus</code>.</li>
+    <li>Serenity and Cucumber write the result into the configured reports.</li>
+  </ol>
+
+  <h2>14. Main Strengths</h2>
+  <ul>
+    <li>The framework has a clear layered structure from feature files to steps, actions/API clients, page objects, config, and assertions.</li>
+    <li>The API side is deterministic when run with <code>@stub</code>, which avoids dependency on a public service for most checks.</li>
+    <li>Configuration is centralized and supports system-property overrides.</li>
+    <li>Assertions are centralized, readable, and reusable.</li>
+    <li>The UI page registry makes page validation steps more readable in Gherkin.</li>
+    <li>Serenity gives useful execution reports, screenshots, and REST evidence.</li>
+  </ul>
+
+  <h2>15. Recommended Improvements</h2>
+
+  <h3>Consolidate Older and Newer Step/Action Styles</h3>
+  <p>The framework currently contains a mixture of direct step definitions and action-based step flows. Some scenarios call action classes through thin Cucumber step definitions, while other steps contain more workflow logic directly. Both approaches work, but mixing them makes the framework harder to scan, extend, and debug because similar behaviours can be implemented in different places.</p>
+
+  <p>A good direction would be to standardise the UI framework around this structure:</p>
+
+  <pre>Feature file
+  -> Step definition
+    -> Action class
+      -> Page object</pre>
+
+  <p>Step definitions should mainly translate Gherkin arguments and delegate. Action classes should hold reusable workflows, such as logging in, adding products to the cart, or completing checkout. Page objects should remain focused on page locators and page-level interactions. This would reduce duplicated logic and make it clearer where new behaviour belongs.</p>
+
+  <h3>Remove Duplicate Step Annotation</h3>
+  <p>The method that handles <code>Given the Postcodes.io API is available at "/"</code> currently has the same Cucumber annotation twice:</p>
+
+  <pre>@Given("the Postcodes.io API is available at {string}")
+@Given("the Postcodes.io API is available at {string}")</pre>
+
+  <p>This should be reduced to a single annotation. The duplicate does not add any behaviour and can create unnecessary confusion when maintaining or searching step bindings. If the root path is always used, the step could also be renamed to something more specific, such as:</p>
+
+  <pre>Given the Postcodes.io API root endpoint is available</pre>
+
+  <p>That version would avoid passing <code>"/"</code> through every background step and would make the intent clearer.</p>
+
+  <h3>Exclude Generated Output From Searches and Reviews</h3>
+  <p>Generated folders such as <code>target</code>, <code>build</code>, and report directories contain compiled classes, generated reports, screenshots, logs, and copied test resources. They are useful execution outputs, but they add a lot of noise during code searches and reviews.</p>
+
+  <p>For day-to-day maintenance, searches should focus on source and resource folders such as <code>src/test/java</code> and <code>src/test/resources</code>. Generated folders should also be kept out of committed changes unless there is a deliberate reason to version a specific artifact. This keeps reviews smaller and prevents generated files from hiding meaningful changes.</p>
+
+  <h3>Make API Scenario State Naming More Precise</h3>
+  <p>The API scenario state should describe the type of response it is holding as accurately as possible. At the moment, the bulk postcode lookup flow stores its response in the nearest-response field. The tests still pass because the same setter also updates <code>currentResponse</code>, and the generic assertion steps read from <code>currentResponse</code>. However, the field name suggests the response came from a nearest-postcode request, which is misleading when debugging failures or adding new endpoint coverage.</p>
+
+  <p>A clearer model would keep <code>currentResponse</code> for shared assertions, but also store each endpoint response in a field with a specific name:</p>
+
+  <pre>lookupResponse
+bulkLookupResponse
+nearestPostcodeResponse
+nearestOutcodeResponse
+currentResponse</pre>
+
+  <p>Each setter can still update <code>currentResponse</code>, preserving the existing generic assertion style while making the state object accurately describe what each response contains. This reduces cognitive load when adding new API endpoints or debugging scenario failures.</p>
+</body>
+</html>

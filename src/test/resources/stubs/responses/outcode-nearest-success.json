@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "result": [
+    {
+      "outcode": "SW1A",
+      "longitude": -0.141563,
+      "latitude": 51.50101,
+      "distance": 0
+    },
+    {
+      "outcode": "SW1P",
+      "longitude": -0.132689,
+      "latitude": 51.495369,
+      "distance": 0.88
+    },
+    {
+      "outcode": "W1J",
+      "longitude": -0.143831,
+      "latitude": 51.50889,
+      "distance": 0.89
+    }
+  ]
+}

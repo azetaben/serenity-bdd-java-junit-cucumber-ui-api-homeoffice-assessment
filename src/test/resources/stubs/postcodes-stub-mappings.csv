@@ -1,0 +1,14 @@
+method,pathPattern,queryParams,status,responseFile
+GET,/,,200,api-available.json
+GET,/postcodes/.*,,404,lookup-not-found.json
+GET,(?i)/postcodes/SW1A(%20)?1AA,,200,lookup-success.json
+GET,/postcodes/ZZ99.*9ZZ,,404,lookup-not-found.json
+POST,/postcodes,,200,bulk-postcode-lookup-success.json
+GET,/postcodes,"lon=-0.141563;lat=51.50101",200,nearest-success.json
+GET,/postcodes,"lon=-1.069752;lat=51.6562",200,nearest-success.json
+GET,/postcodes,"lon=0.858437;lat=52.50101",200,no-result.json
+GET,/postcodes,"lon=200.0;lat=51.5",200,no-result.json
+GET,/postcodes,"lon=-200.0;lat=51.5",200,no-result.json
+GET,/postcodes,"lon=-0.1416;lat=95.0",200,no-result.json
+GET,/postcodes,"lon=-0.1416;lat=-95.0",200,no-result.json
+GET,(?i)/outcodes/SW1A/nearest,,200,outcode-nearest-success.json
